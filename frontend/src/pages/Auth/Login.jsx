@@ -1,7 +1,12 @@
 import React, { useState } from "react";
 import AuthLayout from "../../components/Layouts/AuthLayout";
 import { useNavigate } from "react-router-dom";
-import { LuMail, LuLock, LuEye, LuEyeOff } from "react-icons/lu";
+import {
+  LuMail,
+  LuLock,
+  LuEye,
+  LuEyeOff,
+} from "react-icons/lu";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -30,7 +35,10 @@ const Login = () => {
           Please enter your details to login
         </p>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4"
+        >
           {/* Email Address */}
           <div className="flex flex-col gap-1">
             <label
@@ -41,7 +49,10 @@ const Login = () => {
             </label>
 
             <div className="flex items-center gap-3 border border-slate-300 rounded-lg px-4 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100">
-              <LuMail size={18} className="text-slate-400 shrink-0" />
+              <LuMail
+                size={18}
+                className="text-slate-400 shrink-0"
+              />
 
               <input
                 id="email"
@@ -67,7 +78,10 @@ const Login = () => {
             </label>
 
             <div className="flex items-center gap-3 border border-slate-300 rounded-lg px-4 focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-100">
-              <LuLock size={18} className="text-slate-400 shrink-0" />
+              <LuLock
+                size={18}
+                className="text-slate-400 shrink-0"
+              />
 
               <input
                 id="password"
@@ -83,8 +97,12 @@ const Login = () => {
 
               <button
                 type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() =>
+                  setShowPassword((prev) => !prev)
+                }
+                aria-label={
+                  showPassword ? "Hide password" : "Show password"
+                }
                 aria-pressed={showPassword}
                 className="text-slate-400 hover:text-slate-700 transition-colors shrink-0"
               >
@@ -99,7 +117,10 @@ const Login = () => {
 
           {/* Error Message */}
           {error && (
-            <p className="text-sm text-red-500" role="alert">
+            <p
+              className="text-sm text-red-500"
+              role="alert"
+            >
               {error}
             </p>
           )}
@@ -115,7 +136,7 @@ const Login = () => {
             </button>
           </div>
 
-          {/* Submit Button */}
+          {/* Sign In Button */}
           <button
             type="submit"
             className="w-full rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
@@ -123,6 +144,18 @@ const Login = () => {
             Sign In
           </button>
         </form>
+
+        {/* Sign Up Link */}
+        <p className="text-sm text-slate-600 text-center mt-6">
+          Don't have an account?{" "}
+          <button
+            type="button"
+            onClick={() => navigate("/signup")}
+            className="font-medium text-violet-600 hover:text-violet-700"
+          >
+            Sign up
+          </button>
+        </p>
       </div>
     </AuthLayout>
   );
