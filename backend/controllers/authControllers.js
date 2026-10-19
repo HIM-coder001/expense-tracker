@@ -100,23 +100,22 @@ export const loginUser = async (req, res) => {
 };
 
 //getUserInfo
+
 export const getUserInfo = async (req, res) => {
-  try {
-    const user = awaitUser.findById(req.user.id).select("-password");
+    try {
+        const user = await User.findById(req.user.id).select("-password");
 
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+            });
+        }
+
+        return res.status(200).json(user);
+    } catch (error) {
+        return res.status(500).json({
+            message: "Error fetching user information",
+            error: error.message,
+        });
     }
-
-    res.status(200).json(user);
-  } 
-
-  catch (error) {
-    res.status(500).json({
-      message: "Error fetching user information",
-      error: err.message,
-    });
-  }
 };

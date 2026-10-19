@@ -1,25 +1,31 @@
-import multer from 'multer';
+ 
+import multer from "multer";
 
 // Configure storage
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/'); 
-  },
-  filename: function (req, file, cb) {
-    // Adds a timestamp to avoid filename clashes
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
+    destination: function (req, file, cb) {
+        cb(null, "uploads/");
+    },
+    filename: function (req, file, cb) {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    },
 });
 
-// File filter  
+// File filter
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-    
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+
     if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true); // Accept the file
+        cb(null, true);
     } else {
-        cb(new Error('Only .jpeg, .jpg and .png formats are allowed'), false); // Reject the file
+        cb(
+            new Error("Only .jpeg, .jpg and .png formats are allowed"),
+            false
+        );
     }
 };
 
-export default { storage, fileFilter };
+// Create the Multer instance
+const upload = multer({ storage, fileFilter });
+
+export default upload;
