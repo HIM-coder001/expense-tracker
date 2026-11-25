@@ -7,8 +7,8 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      maxlength: [100, "Full name cannot exceed 100 characters"],
     },
-
     email: {
       type: String,
       required: true,
@@ -16,38 +16,45 @@ const UserSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-
     password: {
       type: String,
       required: true,
       minlength: 8,
     },
-
     profileImageUrl: {
       type: String,
       default: null,
     },
+    // Default currency for new income/expense records
+    defaultCurrency: {
+      type: String,
+      default: "USD",
+      uppercase: true,
+      trim: true,
+      maxlength: 3,
+    },
+    // Password reset token (hashed) and expiry
+    passwordResetToken: {
+      type: String,
+      default: null,
+    },
+    passwordResetExpires: {
+      type: Date,
+      default: null,
+    },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 // Hash password before saving
 UserSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
-
-  this.password = await bcrypt.hash(this.password, 10);
+  this.password = await bcrypt.hash(this.password, 12);
 });
 
-// Compare candidate password with the stored hash
-UserSchema.methods.comparePassword = async function (
-  candidatePassword
-) {
+UserSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Create the model from the schema
 const User = mongoose.model("User", UserSchema);
-
 export default User;
