@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed": "node scripts/seedCategories.js"
+    "seed": "node scripts/seedCategories.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --coverage"
   },
   "keywords": [],
   "author": "",
@@ -31,6 +33,27 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@babel/core": "^7.29.13",
+    "@babel/preset-env": "^7.29.14",
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^7.2.1",
+    "babel-jest": "^29.7.0",
+    "jest": "^30.5.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.3.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "injectGlobals": true,
+    "testMatch": ["**/tests/**/*.test.js"],
+    "setupFiles": ["./tests/setup.js"],
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "controllers/**/*.js",
+      "middleware/**/*.js",
+      "models/**/*.js",
+      "validation/**/*.js"
+    ]
   }
 }
