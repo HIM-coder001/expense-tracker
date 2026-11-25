@@ -1,32 +1,44 @@
-import express from 'express';
-import {registerUser , loginUser, getUserInfo} from '../controllers/authControllers.js'
-import protect from '../middleware/authMiddleware.js'
-import upload from '../middleware/uploadMiddleware.js'
+import express from "express";
+import {
+  registerUser,
+  loginUser,
+  refreshAccessToken,
+  logoutUser,
+  getUserInfo,
+  uploadProfileImage,
+  getProfileImage,
+  forgotPassword,
+  resetPassword,
+} from "../controllers/authControllers.js";
+import protect from "../middleware/authMiddleware.js";
+import upload from "../middleware/uploadMiddleware.js";
+import { validate } from "../middleware/validate.js";
+import {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from "../validation/authSchemas.js";
 
 const router = express.Router();
 
-router.post("/register" , registerUser);
+router.post("/register", validate(registerSchema), registerUser);
+router.post("/login", validate(loginSchema), loginUser);
+router.post("/refresh", refreshAccessToken);
+router.post("/logout", logoutUser);
+router.get("/getUser", protect, getUserInfo);
 
-router.post("/login" , loginUser);
+// Password reset (unauthenticated — user has lost access)
+router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+router.post("/reset-password/:token", validate(resetPasswordSchema), resetPassword);
 
-router.get("/getUser", protect , getUserInfo);
-
-router.post("/upload-image", upload.single("image"), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({
-            message: "No file uploaded"
-        });
-    }
-
-    // Construct the public URL for the uploaded image
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-
-    // Send back a success response with the image URL
-    res.status(200).json({
-        message: "File uploaded successfully!",
-        imageUrl: imageUrl,
-        fileInfo: req.file
-    });
-});
+// Profile image — authenticated, ownership enforced in controller
+router.post(
+  "/upload-image",
+  protect,
+  upload.single("image"),
+  uploadProfileImage
+);
+router.get("/profile-image", protect, getProfileImage);
 
 export default router;
