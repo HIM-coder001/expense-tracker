@@ -1,171 +1,156 @@
-import Income from "../models/Income.js";
 import mongoose from "mongoose";
-import xlsx from "xlsx";
+import ExcelJS from "exceljs";
+import Income from "../models/Income.js";
+import User from "../models/User.js";
 
-// Add Income Source
+// Convert major units (e.g. 10.50) to integer minor units (1050)
+const toMinorUnits = (amount) => Math.round(amount * 100);
+// Convert integer minor units (1050) back to major units (10.50)
+const toMajorUnits = (amount) => amount / 100;
+
+const formatIncome = (doc) => ({
+  ...doc,
+  amount: toMajorUnits(doc.amount),
+});
+
+// ─── Add Income ───────────────────────────────────────────────────────────────
+
 export const addIncome = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { icon, source, amount, date } = req.body;
+  const userId = req.user.id;
+  const { icon, source, amount, date, categoryId, currencyCode } = req.body;
 
-    // Validate required fields
-    if (
-      typeof source !== "string" ||
-      !source.trim() ||
-      amount === undefined ||
-      amount === null ||
-      amount === "" ||
-      !date
-    ) {
-      return res.status(400).json({
-        message: "Source, amount, and date are required",
-      });
-    }
-
-    // Validate amount
-    const parsedAmount = Number(amount);
-
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      return res.status(400).json({
-        message: "Amount must be a valid number greater than zero",
-      });
-    }
-
-    // Validate date
-    const parsedDate = new Date(date);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return res.status(400).json({
-        message: "Please provide a valid date",
-      });
-    }
-
-    const newIncome = await Income.create({
-      userId,
-      icon,
-      source: source.trim(),
-      amount: parsedAmount,
-      date: parsedDate,
-    });
-
-    return res.status(201).json({
-      message: "Income added successfully",
-      income: newIncome,
-    });
-  } catch (error) {
-    console.error("Add income error:", error);
-
-    return res.status(500).json({
-      message: "Failed to add income",
-    });
+  // Resolve currency: use request value → user default → "USD"
+  let resolvedCurrency = currencyCode;
+  if (!resolvedCurrency) {
+    const user = await User.findById(userId).select("defaultCurrency").lean();
+    resolvedCurrency = user?.defaultCurrency || "USD";
   }
+
+  const newIncome = await Income.create({
+    userId,
+    icon,
+    source,
+    amount: toMinorUnits(amount),
+    date: new Date(date),
+    categoryId: categoryId || null,
+    currencyCode: resolvedCurrency,
+  });
+
+  return res.status(201).json({
+    status: "success",
+    data: { income: formatIncome(newIncome.toObject()) },
+  });
 };
 
-// Get All Income Sources
+// ─── Get All Income (cursor-based pagination) ─────────────────────────────────
+
 export const getAllIncome = async (req, res) => {
-  try {
-    const userId = req.user.id;
+  const userId = req.user.id;
+  // req.validatedQuery is set by validate(schema, "query") middleware.
+  // Express 5 makes req.query read-only so we can't reassign it there.
+  const { limit = 20, cursor, categoryId } = req.validatedQuery ?? req.query;
 
-    const income = await Income.find({ userId })
-      .sort({ date: -1 });
+  const pageSize = Math.min(parseInt(limit, 10) || 20, 100);
 
-    return res.status(200).json({
-      count: income.length,
-      income,
-    });
-  } catch (error) {
-    console.error("Get income error:", error);
+  const filter = { userId };
+  if (categoryId) filter.categoryId = new mongoose.Types.ObjectId(categoryId);
 
-    return res.status(500).json({
-      message: "Failed to retrieve income records",
-    });
+  // Cursor is the _id of the last document from the previous page
+  if (cursor) {
+    filter._id = { $lt: new mongoose.Types.ObjectId(cursor) };
   }
+
+  const docs = await Income.find(filter)
+    .sort({ date: -1, _id: -1 })
+    .limit(pageSize + 1) // fetch one extra to determine if there's a next page
+    .lean();
+
+  const hasNextPage = docs.length > pageSize;
+  const results = hasNextPage ? docs.slice(0, pageSize) : docs;
+  const nextCursor = hasNextPage ? results[results.length - 1]._id : null;
+
+  return res.status(200).json({
+    status: "success",
+    data: {
+      income: results.map(formatIncome),
+      pagination: {
+        hasNextPage,
+        nextCursor,
+        pageSize,
+      },
+    },
+  });
 };
 
-// Download Income as Excel
-export const downloadIncomeExcel = async (req, res) => {
-  try {
-    const userId = req.user.id;
+// ─── Delete Income ────────────────────────────────────────────────────────────
 
-    const income = await Income.find({ userId })
-      .select("source amount date -_id")
-      .sort({ date: -1 })
-      .lean();
-
-    // Prepare rows for the Excel worksheet
-    const data = income.map((item) => ({
-      Source: item.source,
-      Amount: item.amount,
-      Date: item.date
-        ? new Date(item.date).toISOString().split("T")[0]
-        : "",
-    }));
-
-    const workbook = xlsx.utils.book_new();
-    const worksheet = xlsx.utils.json_to_sheet(data);
-
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Income");
-
-    // Generate the Excel file in memory
-    const buffer = xlsx.write(workbook, {
-      type: "buffer",
-      bookType: "xlsx",
-    });
-
-    // Send the file to the client
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
-
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="income-details.xlsx"'
-    );
-
-    return res.status(200).send(buffer);
-  } catch (error) {
-    console.error("Download income error:", error);
-
-    return res.status(500).json({
-      message: "Failed to export income records",
-    });
-  }
-};
-
-// Delete Income Source
 export const deleteIncome = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
+  const userId = req.user.id;
+  const { id } = req.params;
 
-    // Validate MongoDB document ID
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({
-        message: "Invalid income ID",
-      });
-    }
-
-    // Delete only if this record belongs to the logged-in user
-    const deletedIncome = await Income.findOneAndDelete({
-      _id: id,
-      userId,
-    });
-
-    if (!deletedIncome) {
-      return res.status(404).json({
-        message: "Income record not found",
-      });
-    }
-
-    return res.status(200).json({
-      message: "Income deleted successfully",
-    });
-  } catch (error) {
-    console.error("Delete income error:", error);
-
-    return res.status(500).json({
-      message: "Failed to delete income",
+  if (!mongoose.isValidObjectId(id)) {
+    return res.status(400).json({
+      status: "error",
+      code: "INVALID_ID",
+      message: "Invalid income ID",
     });
   }
+
+  // userId scoped — prevents IDOR
+  const deleted = await Income.findOneAndDelete({ _id: id, userId });
+
+  if (!deleted) {
+    return res.status(404).json({
+      status: "error",
+      code: "NOT_FOUND",
+      message: "Income record not found",
+    });
+  }
+
+  return res.status(200).json({
+    status: "success",
+    message: "Income deleted successfully",
+  });
+};
+
+// ─── Download Excel ───────────────────────────────────────────────────────────
+
+export const downloadIncomeExcel = async (req, res) => {
+  const userId = req.user.id;
+
+  const income = await Income.find({ userId })
+    .select("source amount currencyCode date -_id")
+    .sort({ date: -1 })
+    .lean();
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Income");
+
+  sheet.columns = [
+    { header: "Source", key: "source", width: 30 },
+    { header: "Amount", key: "amount", width: 15 },
+    { header: "Currency", key: "currencyCode", width: 10 },
+    { header: "Date", key: "date", width: 15 },
+  ];
+
+  income.forEach((item) => {
+    sheet.addRow({
+      source: item.source,
+      amount: toMajorUnits(item.amount),
+      currencyCode: item.currencyCode,
+      date: item.date ? new Date(item.date).toISOString().split("T")[0] : "",
+    });
+  });
+
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    'attachment; filename="income-details.xlsx"'
+  );
+
+  await workbook.xlsx.write(res);
+  res.end();
 };
