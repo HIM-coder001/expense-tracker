@@ -1,0 +1,4 @@
+.vscode/
+backend/private_uploads/
+backend/uploads/
+*.log
