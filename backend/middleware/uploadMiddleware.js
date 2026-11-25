@@ -1,31 +1,48 @@
- 
 import multer from "multer";
+import path from "path";
+import { randomUUID } from "crypto";
+import fs from "fs";
 
-// Configure storage
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_SIZE_BYTES =
+  (parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 5) * 1024 * 1024;
+
+// Use env-configured upload directory (defaults to private_uploads).
+// This folder is intentionally NOT served as a static route.
+const uploadDir = path.resolve(process.env.UPLOAD_DIR || "private_uploads");
+
+// Ensure the directory exists on startup
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, "uploads/");
-    },
-    filename: function (req, file, cb) {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    },
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  // Random UUID filename removes original name from disk — prevents
+  // path traversal via crafted filenames and avoids enumeration
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${randomUUID()}${ext}`);
+  },
 });
 
-// File filter
-const fileFilter = (req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
-
-    if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(
-            new Error("Only .jpeg, .jpg and .png formats are allowed"),
-            false
-        );
-    }
+const fileFilter = (_req, file, cb) => {
+  if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(
+      Object.assign(new Error("Only JPEG, PNG, and WebP images are allowed"), {
+        code: "INVALID_FILE_TYPE",
+      }),
+      false
+    );
+  }
 };
 
-// Create the Multer instance
-const upload = multer({ storage, fileFilter });
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: MAX_SIZE_BYTES, files: 1 },
+});
 
 export default upload;
